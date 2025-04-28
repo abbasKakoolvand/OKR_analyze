@@ -5,8 +5,8 @@ from core.analyzer import OKRAnalyzer
 app = FastAPI()
 
 
-@app.post("/analyze", response_model=AnalysisResult)
-def analyze(payload: InputPayload):
+@app.get("/analyze", response_model=AnalysisResult)
+def analyze():
     """
     Analyze team daily tasks against OKRs and return mapping of tasks to OKRs,
     along with identified risks and deliverables for each OKR.
