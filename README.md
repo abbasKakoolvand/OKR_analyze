@@ -58,3 +58,10 @@ It then calls OpenAI’s Chat API to produce:
    ```bash
    git clone https://github.com/your-org/okr_analyze.git
    cd okr_analyze
+
+ **Run in Terminal**  
+   ```bash
+    uvicorn okr_analyze:app --reload
+
+ **List of APIs**  
+   http://localhost:8000/docs

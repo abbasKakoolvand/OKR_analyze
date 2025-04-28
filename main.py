@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from models.schemas import InputPayload, AnalysisResult
 from core.analyzer import OKRAnalyzer
+from utils.excel_reader import run_analysis_cli
 
 app = FastAPI()
 
@@ -11,6 +12,7 @@ def analyze():
     Analyze team daily tasks against OKRs and return mapping of tasks to OKRs,
     along with identified risks and deliverables for each OKR.
     """
+    payload = run_analysis_cli()
     return OKRAnalyzer.invoke(payload)
 
 
