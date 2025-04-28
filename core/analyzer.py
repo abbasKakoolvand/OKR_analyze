@@ -2,6 +2,7 @@ import json
 from fastapi import HTTPException
 from models.schemas import InputPayload, AnalysisResult
 from services.openai_client import OpenAIClient
+from utils.extract_json_prompt import extract_json_from_response
 
 
 class OKRAnalyzer:
@@ -22,11 +23,12 @@ class OKRAnalyzer:
                 f"OKRs list: {json.dumps([okr.dict() for okr in payload.okrs], indent=2)}"
             )}
         ]
-        print(prompt)
 
         try:
             content = OpenAIClient.chat(prompt)
-            data = json.loads(content)
+            data = extract_json_from_response(content)
+
+            # data = json.loads(content)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Analysis failed: {e}")
 

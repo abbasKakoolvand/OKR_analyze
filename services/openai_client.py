@@ -71,6 +71,7 @@ class OpenAIClient:
                 temperature=temperature,
                 top_p=top_p
             )
+
             return response.choices[0].message.content.strip()
         except Exception as e:
             raise RuntimeError(f"Azure OpenAI Chat API call failed: {e}")

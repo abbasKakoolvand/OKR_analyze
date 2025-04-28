@@ -61,7 +61,8 @@ It then calls OpenAI’s Chat API to produce:
 
  **Run in Terminal**  
    ```bash
-    uvicorn okr_analyze:app --reload
+    uvicorn main:app --reload
+
 
  **List of APIs**  
    http://localhost:8000/docs
