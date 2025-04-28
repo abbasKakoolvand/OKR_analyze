@@ -50,7 +50,7 @@ class OpenAIClient:
             messages,
             deployment: str = AZURE_OPENAI_DEPLOYMENT,
             temperature: float = 0.2,
-            max_tokens: int = 1000,
+            max_tokens: int = 4096,
             top_p: float = 1.0
     ) -> str:
         """
