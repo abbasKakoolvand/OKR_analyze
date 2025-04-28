@@ -12,6 +12,7 @@ def analyze():
     Analyze team daily tasks against OKRs and return mapping of tasks to OKRs,
     along with identified risks and deliverables for each OKR.
     """
+    print("api called")
     payload = run_analysis_cli()
     return OKRAnalyzer.invoke(payload)
 

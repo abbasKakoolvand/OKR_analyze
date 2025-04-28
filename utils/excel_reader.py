@@ -7,7 +7,11 @@ def run_analysis_cli(task_xlsx="assets/excel/team tasks spreadsheet.xlsx", okr_x
     # load from Excel
     task_rows = load_task_table(task_xlsx)
     okr_list = load_okrs(okr_xlsx)
+    print("files loaded")
+    print(task_rows)
+    print(okr_list)
     payload = InputPayload(task_table=task_rows, okrs=okr_list)
+    print("payload returned")
     return payload
 
 

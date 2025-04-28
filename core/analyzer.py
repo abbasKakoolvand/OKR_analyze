@@ -22,6 +22,7 @@ class OKRAnalyzer:
                 f"OKRs list: {json.dumps([okr.dict() for okr in payload.okrs], indent=2)}"
             )}
         ]
+        print(prompt)
 
         try:
             content = OpenAIClient.chat(prompt)
