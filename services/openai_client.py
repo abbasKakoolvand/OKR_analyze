@@ -1,28 +1,4 @@
-# import os
-# from dotenv import load_dotenv
-# import openai
-#
-# # load environment variables from .env (project root)
-# load_dotenv()
-#
-# # now fetch the key
-# openai.api_key = os.getenv("OPENAI_API_KEY")
-#
-# class OpenAIClient:
-#     @staticmethod
-#     def chat(messages, model="gpt-3.5-turbo", temperature=0.2, max_tokens=1000) -> str:
-#         try:
-#             response = openai.ChatCompletion.create(
-#                 model=model,
-#                 messages=messages,
-#                 temperature=temperature,
-#                 max_tokens=max_tokens,
-#             )
-#             return response.choices[0].message.content.strip()
-#         except Exception as e:
-#             raise RuntimeError(f"OpenAI Chat API call failed: {e}")
-
-
+# services/openai_client.py
 import os
 from dotenv import load_dotenv
 from openai import AzureOpenAI
@@ -34,7 +10,7 @@ load_dotenv()
 AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
-AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini")
+AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
 
 # Initialize AzureOpenAI client
 client = AzureOpenAI(
@@ -49,19 +25,21 @@ class OpenAIClient:
     def chat(
             messages,
             deployment: str = AZURE_OPENAI_DEPLOYMENT,
-            temperature: float = 0.2,
+            temperature: float = 0.0,  # Deterministic mode
             max_tokens: int = 4096,
-            top_p: float = 1.0
+            top_p: float = 1.0,
+            seed: int = 42  # Fixed seed for reproducibility
     ) -> str:
         """
-        Send a chat completion request to Azure OpenAI.
+        Send a chat completion request to Azure OpenAI with deterministic settings.
 
         :param messages: List of {"role": ..., "content": ...} dicts
-        :param deployment: the name of your deployed chat model
-        :param temperature: sampling temperature
-        :param max_tokens: max tokens in the response
-        :param top_p: nucleus sampling parameter
-        :return: the assistant's reply text
+        :param deployment: Model deployment name
+        :param temperature: Sampling temperature (0 for deterministic)
+        :param max_tokens: Max response tokens
+        :param top_p: Nucleus sampling parameter
+        :param seed: Random seed for reproducibility
+        :return: The assistant's reply text
         """
         try:
             response = client.chat.completions.create(
@@ -69,7 +47,8 @@ class OpenAIClient:
                 model=deployment,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                top_p=top_p
+                top_p=top_p,
+                seed=seed  # Critical for reproducibility
             )
 
             return response.choices[0].message.content.strip()

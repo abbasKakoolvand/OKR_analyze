@@ -61,7 +61,7 @@ It then calls OpenAI’s Chat API to produce:
 
  **Run in Terminal**  
    ```bash
-    uvicorn main:app --reload
+    uvicorn main:app
 
 
  **List of APIs**  

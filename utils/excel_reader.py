@@ -45,8 +45,13 @@ def load_okrs(path: str) -> List[OKR]:
     Auto‐assigns IDs KR1, KR2, … in order of appearance.
     """
     df = pd.read_excel(path, engine="openpyxl")
-    kr_col = df.columns[0]
-    okrs: List[OKR] = []
-    for idx, val in enumerate(df[kr_col].dropna(), start=1):
-        okrs.append(OKR(id=f"KR{idx}", description=str(val).strip()))
+
+    # Handle missing values
+    df["Key Results"] = df["Key Results"].fillna("")
+
+    # Vectorized operation (faster than iterrows)
+    okrs = [
+        OKR(id=str(row["KR_code"]).strip(), description=str(row["Key Results"]).strip())
+        for _, row in df.iterrows()
+    ]
     return okrs

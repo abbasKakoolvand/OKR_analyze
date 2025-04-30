@@ -20,3 +20,4 @@ class AnalysisResult(BaseModel):
     tasks_by_kr: Dict[str, Dict[str, List[str]]]
     risks: Dict[str, List[str]]
     deliverables: Dict[str, List[str]]
+

@@ -17,6 +17,24 @@ def analyze():
     return OKRAnalyzer.invoke(payload)
 
 
+@app.get("/analyze-kr/{kr_code}")
+def analyze_kr(kr_code: str):
+    """
+    Analyze team daily tasks for a specific Key Result (KR) and return:
+    - Tasks mapped to the KR
+    - Identified risks
+    - Deliverables for the KR
+    """
+    print(f"API called for KR: {kr_code}")
+    kr_info={}
+    # Load full payload first
+    payload = run_analysis_cli()
+
+    kr_info["kr_name"] = [okr.description for okr in payload.okrs if okr.id == kr_code][0]
+    kr_info["kr_result"] = OKRAnalyzer.invoke_for_single_kr(payload, kr_code)
+    return kr_info
+
+
 if __name__ == "__main__":
     import uvicorn
 
