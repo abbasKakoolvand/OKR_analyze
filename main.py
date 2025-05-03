@@ -26,7 +26,7 @@ def analyze_kr(kr_code: str):
     - Deliverables for the KR
     """
     print(f"API called for KR: {kr_code}")
-    kr_info={}
+    kr_info = {}
     # Load full payload first
     payload = run_analysis_cli()
 
