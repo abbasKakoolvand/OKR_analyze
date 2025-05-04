@@ -16,6 +16,12 @@ class InputPayload(BaseModel):
     okrs: List[OKR]
 
 
+class InputPayload_with_description(BaseModel):
+    task_table: List[TaskRow]
+    okrs: List[OKR]
+    okrs_text: str
+
+
 class AnalysisResult(BaseModel):
     tasks_by_kr: Dict[str, Dict[str, List[str]]]
     risks: Dict[str, List[str]]

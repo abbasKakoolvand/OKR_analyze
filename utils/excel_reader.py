@@ -1,6 +1,6 @@
 import pandas as pd
 from typing import List
-from models.schemas import TaskRow, OKR, InputPayload
+from models.schemas import TaskRow, OKR, InputPayload, InputPayload_with_description
 
 
 def run_analysis_cli(task_xlsx="assets/excel/team tasks spreadsheet.xlsx", okr_xlsx="assets/excel/okr.xlsx"):
@@ -11,6 +11,20 @@ def run_analysis_cli(task_xlsx="assets/excel/team tasks spreadsheet.xlsx", okr_x
     print(task_rows)
     print(okr_list)
     payload = InputPayload(task_table=task_rows, okrs=okr_list)
+    print("payload returned")
+    return payload
+
+
+def run_analysis_cli_with_description(kr_code="", task_xlsx="assets/excel/team tasks spreadsheet.xlsx",
+                                      okr_xlsx="assets/excel/SPM BI OKR 1404.xlsx"):
+    # load from Excel
+    task_rows = load_task_table(task_xlsx)
+    okr_list, okr_text = load_okrs_with_objective(okr_xlsx, kr_code)
+
+    print("files loaded")
+    print(task_rows)
+    print(okr_list)
+    payload = InputPayload_with_description(task_table=task_rows, okrs=okr_list, okrs_text=okr_text)
     print("payload returned")
     return payload
 
@@ -57,7 +71,7 @@ def load_okrs(path: str) -> List[OKR]:
     return okrs
 
 
-def load_okrs_with_objective(path: str) -> List[OKR]:
+def load_okrs_with_objective(path: str, okr_code: str):
     """
     Reads an Excel file where the first column holds each Key Result.
     Auto‐assigns IDs KR1, KR2, … in order of appearance.
@@ -65,12 +79,14 @@ def load_okrs_with_objective(path: str) -> List[OKR]:
     import pandas as pd
     # 1. Read & filter
     df = pd.read_excel(
-        'assets/excel/SPM BI OKR 1404.xlsx',
+        path,
         sheet_name='SPMBI OKR 1404Q1-python'
     )
     filtered = df[df['SPM BI Key Results (نتایج کلیدی)'].notna() & df['SPM BI Key Results (نتایج کلیدی)'].astype(
         str).str.strip().ne('')]
-    flag_description = False  # toggle whether to include the description field
+    filtered = filtered[filtered['SPMBIKR-CODE'] == okr_code]
+    print(f"filtered {okr_code}:", )
+    flag_description = True  # toggle whether to include the description field
     # 2. Build the text
     lines = []
     for obj, obj_df in filtered.groupby('Objective (هدف)'):
@@ -93,3 +109,9 @@ def load_okrs_with_objective(path: str) -> List[OKR]:
     # 3. Final output
     okr_text = "\n\n".join(lines)
     print(okr_text)
+
+    okrs = [
+        OKR(id=str(row["SPMBIKR-CODE"]).strip(), description=str(row["SPM BI Key Results (نتایج کلیدی)"]).strip())
+        for _, row in filtered.iterrows()
+    ]
+    return okrs, okr_text
