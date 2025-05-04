@@ -12,12 +12,14 @@ AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
 AZURE_OPENAI_API_VERSION = os.getenv("AZURE_OPENAI_API_VERSION", "2024-12-01-preview")
 AZURE_OPENAI_DEPLOYMENT = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
 
+
 # Initialize AzureOpenAI client
 client = AzureOpenAI(
     azure_endpoint=AZURE_OPENAI_ENDPOINT,
     api_key=AZURE_OPENAI_API_KEY,
     api_version=AZURE_OPENAI_API_VERSION,
 )
+
 
 
 class OpenAIClient:

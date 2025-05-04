@@ -2,8 +2,14 @@
 import json
 from fastapi import HTTPException
 from models.schemas import InputPayload, AnalysisResult
+from services.openai_client import client as openai_client
 from services.openai_client import OpenAIClient
 from utils.extract_json_prompt import extract_json_from_response
+from langchain_core.runnables import Runnable
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 
 class OKRAnalyzer:
@@ -157,3 +163,144 @@ class OKRAnalyzer:
             risks={kr_code: data.get("risks", {}).get(kr_code, [])},
             deliverables={kr_code: data.get("deliverables", {}).get(kr_code, [])}
         )
+        
+
+
+#defining a runnable class to invoke the analyzer
+class OKRClassifier(Runnable):
+    def __init__(self, payload: InputPayload):
+        self.okrs = payload
+        
+
+    #Function for calling LLM and returning the result
+    def __llm_analysis(self) -> AnalysisResult:
+    
+    # Define the function schema for OKR classification
+        llm_tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "classify_okrs",
+                    "description": "Classify a list of OKRs based on Type, Scope, Automation Level, and Dependency, returning a JSON array.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "classified_okrs": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "okr": {"type": "string", "description": "The original OKR text"},
+                                        "type": {
+                                            "type": "string",
+                                            "enum": ["Outcome", "Follow-up", "Setup/Preparation", "Exploration/Feasibility"],
+                                            "description": "The type of OKR"
+                                        },
+                                        "scope": {
+                                            "type": "string",
+                                            "enum": ["Strategic", "Operational", "Technical"],
+                                            "description": "The scope of the OKR"
+                                        },
+                                        "automation_level": {
+                                            "type": "string",
+                                            "enum": ["Manual", "Semi-Automated", "Fully Automated"],
+                                            "description": "The automation level of the OKR"
+                                        },
+                                        "dependency": {
+                                            "type": "string",
+                                            "enum": ["Independent", "Dependent"],
+                                            "description": "Whether the OKR depends on others"
+                                        },
+                                        "depends_on": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                            "description": "List of OKR texts this OKR depends on (if Dependent)"
+                                        }
+                                    },
+                                    "required": ["okr", "type", "scope", "automation_level", "dependency"],
+                                    "additionalProperties": False
+                                }
+                            }
+                        },
+                        "required": ["classified_okrs"],
+                        "additionalProperties": False
+                    }
+                }
+            }
+        ]
+        system_prompt = """
+            You are a system designed to classify Objectives and Key Results (OKRs) based on specific attributes and output the results in JSON format using the provided function schema. Follow these steps:
+
+            1. **Input**: You will receive a list of OKRs as plain text. The OKRs are in Persian and must not be translated or modified.
+            2. **Attributes**:
+            - **Type**:
+                - Outcome: OKRs delivering a measurable result (e.g., completing a profile).
+                - Follow-up: OKRs tracking or monitoring progress (e.g., obtaining approvals).
+                - Setup/Preparation: OKRs establishing infrastructure (e.g., acquiring hardware).
+                - Exploration/Feasibility: OKRs researching possibilities (e.g., feasibility studies).
+            - **Scope**:
+                - Strategic: High-level, long-term goals (e.g., strategic indicators).
+                - Operational: Day-to-day processes (e.g., updating dashboards).
+                - Technical: Infrastructure or systems (e.g., setting up servers).
+            - **Automation Level**:
+                - Manual: Requires human intervention (e.g., approvals).
+                - Semi-Automated: Partial automation (e.g., dashboards).
+                - Fully Automated: Full automation (e.g., high-level AI automation).
+            - **Dependency**:
+                - Independent: Can be executed standalone.
+                - Dependent: Requires other OKRs’ completion (list them in depends_on).
+            3. **Process**:
+            - Analyze each OKR’s text to classify its Type, Scope, Automation Level, and Dependency.
+            - For Dependent OKRs, identify which OKRs they depend on based on context (e.g., dashboards depend on automated indicators).
+            4. **Output**:
+            - Use the classify_okrs function to return a JSON array of classified OKRs.
+            - Ensure each OKR has: okr (original text), type, scope, automation_level, dependency, and depends_on (if Dependent).
+            5. **Constraints**:
+            - Do not translate or modify OKR text.
+            - If classification is ambiguous, choose the most likely attribute and proceed.
+            - Return all OKRs in the output.
+            """
+
+        # Prepare the user message with the OKR list
+        user_message = "Classify the following OKRs:\n" + "\n".join(self.okrs)
+        
+        logger.info(f"User message: {user_message}")
+        logger.info(f"System prompt: {system_prompt}")
+        
+        # Call the OpenAI API with function calling
+        response = openai_client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
+            tools=llm_tools,
+            model ='gpt-4o-mini',
+           
+          
+        )   
+        tool_call = response.choices[0].message.tool_calls[0]
+        classified_okrs = json.loads(tool_call.function.arguments)["classified_okrs"]
+        return_response = json.dumps(classified_okrs, ensure_ascii=False, indent=3)
+        
+        #save the response to a file
+        with open("assets/json/classified_okrs.json", "w", encoding="utf-8") as f:
+            f.write(return_response)
+        
+        return return_response
+
+        
+    
+        
+        
+        
+    
+    
+    def invoke(self) :
+        classified_okrs = self.__llm_analysis()
+        
+        return classified_okrs
+
+    def invoke_for_single_kr(self, kr_code: str) -> AnalysisResult:
+        return OKRAnalyzer.invoke_for_single_kr(self.payload, kr_code)
+    
+    

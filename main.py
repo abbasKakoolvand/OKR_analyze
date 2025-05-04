@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from models.schemas import InputPayload, AnalysisResult
-from core.analyzer import OKRAnalyzer
-from utils.excel_reader import run_analysis_cli
+from core.analyzer import OKRAnalyzer, OKRClassifier
+from utils.excel_reader import run_analysis_cli, load_okrs
+
 
 app = FastAPI()
 
@@ -34,6 +35,23 @@ def analyze_kr(kr_code: str):
     kr_info["kr_result"] = OKRAnalyzer.invoke_for_single_kr(payload, kr_code)
     return kr_info
 
+@app.get('/kr-classifier')
+def kr_classifier():
+    """
+    Classify the KR based on the provided input.
+    """
+    # Placeholder for classification logic
+    
+    # Import keyresults from excel into a dict
+    okrs =  load_okrs("assets/excel/okr.xlsx")
+    keyresults = [okr[1] for _,okr in okrs]
+    
+    analyzer = OKRClassifier(keyresults)
+    
+    analyzer.invoke()
+    
+    
+    return {"message": "KR classification logic goes here."}
 
 if __name__ == "__main__":
     import uvicorn

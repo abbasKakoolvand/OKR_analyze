@@ -4,3 +4,5 @@ openai
 pydantic
 python-dotenv
 pandas
+openpyxl
+langchain-core
