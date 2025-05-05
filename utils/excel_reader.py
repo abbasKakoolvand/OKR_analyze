@@ -53,6 +53,22 @@ def load_task_table(path: str) -> List[TaskRow]:
     return rows
 
 
+def load_daily_task_table(df, day) -> str:
+    """
+    Reads an Excel file where each row is one work‐day and columns are:
+      date, day, <person1>, <person2>, ...
+    Returns a list of TaskRow, each with .tasks mapping person->task_str.
+    """
+    pd.set_option("display.max_colwidth", None)  # Remove column width limit
+    pd.set_option("display.width", None)  # Auto-detect terminal width
+
+    # Convert a specific row to string (e.g., row index 0)
+    tasks_row = [c for ind, c in df.iterrows() if c["date"] == day]
+    # assume first two cols are metadata
+
+    return str(tasks_row)
+
+
 def load_okrs(path: str) -> List[OKR]:
     """
     Reads an Excel file where the first column holds each Key Result.

@@ -11,7 +11,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
 class OKRAnalyzer:
     @staticmethod
     def invoke(payload: InputPayload) -> AnalysisResult:
@@ -48,8 +47,8 @@ class OKRAnalyzer:
                 "    ...\n"
                 "  }\n"
                 "}\n\n"
-        
-                
+
+
 
                 "ADDITIONAL RULES:\n"
                 "- Maintain consistent person names as given\n"
@@ -163,7 +162,6 @@ class OKRAnalyzer:
             risks={kr_code: data.get("risks", {}).get(kr_code, [])},
             deliverables={kr_code: data.get("deliverables", {}).get(kr_code, [])}
         )
-        
 
     @staticmethod
     def invoke_for_single_kr_with_description(payload: InputPayload, kr_code: str) -> AnalysisResult:
@@ -241,17 +239,14 @@ class OKRAnalyzer:
         )
 
 
-
 #defining a runnable class to invoke the analyzer
 class OKRClassifier(Runnable):
     def __init__(self, payload: InputPayload):
         self.okrs = payload
-        
 
     #Function for calling LLM and returning the result
     def __llm_analysis(self) -> AnalysisResult:
-    
-    # Define the function schema for OKR classification
+        # Define the function schema for OKR classification
         llm_tools = [
             {
                 "type": "function",
@@ -269,7 +264,8 @@ class OKRClassifier(Runnable):
                                         "okr": {"type": "string", "description": "The original OKR text"},
                                         "type": {
                                             "type": "string",
-                                            "enum": ["Outcome", "Follow-up", "Setup/Preparation", "Exploration/Feasibility"],
+                                            "enum": ["Outcome", "Follow-up", "Setup/Preparation",
+                                                     "Exploration/Feasibility"],
                                             "description": "The type of OKR"
                                         },
                                         "scope": {
@@ -339,10 +335,10 @@ class OKRClassifier(Runnable):
 
         # Prepare the user message with the OKR list
         user_message = "Classify the following OKRs:\n" + "\n".join(self.okrs)
-        
+
         logger.info(f"User message: {user_message}")
         logger.info(f"System prompt: {system_prompt}")
-        
+
         # Call the OpenAI API with function calling
         response = openai_client.chat.completions.create(
             messages=[
@@ -350,33 +346,23 @@ class OKRClassifier(Runnable):
                 {"role": "user", "content": user_message}
             ],
             tools=llm_tools,
-            model ='gpt-4o-mini',
-           
-          
-        )   
+            model='gpt-4o-mini',
+
+        )
         tool_call = response.choices[0].message.tool_calls[0]
         classified_okrs = json.loads(tool_call.function.arguments)["classified_okrs"]
         return_response = json.dumps(classified_okrs, ensure_ascii=False, indent=3)
-        
+
         #save the response to a file
         with open("assets/json/classified_okrs.json", "w", encoding="utf-8") as f:
             f.write(return_response)
-        
+
         return return_response
 
-        
-    
-        
-        
-        
-    
-    
-    def invoke(self) :
+    def invoke(self):
         classified_okrs = self.__llm_analysis()
-        
+
         return classified_okrs
 
     def invoke_for_single_kr(self, kr_code: str) -> AnalysisResult:
         return OKRAnalyzer.invoke_for_single_kr(self.payload, kr_code)
-    
-    
