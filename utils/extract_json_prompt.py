@@ -26,7 +26,6 @@ def extract_json_from_response(response_text: str) -> dict:
         else:
             print("No valid JSON found between the first '{' and the last '}'")
 
-
     # Extract inside the code block
     json_text = match.group(1).strip()
 

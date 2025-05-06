@@ -1,5 +1,6 @@
 import pandas as pd
 
+from models.ps_sql_schema import get_task_db
 from services.openai_client import OpenAIClient
 from utils.excel_reader import load_daily_task_table
 from utils.extract_json_prompt import extract_json_from_response
@@ -81,6 +82,20 @@ for day in df["date"].unique():
         # Extract JSON from response using triple backticks
         data = extract_json_from_response(content)
         print(data)
+        session, Tasks, _ = get_task_db() # Convert to Gregorian date
+
+        for person, tasks in data.items():
+            for task in tasks:
+                new_task = Tasks(
+                    day=str(day),
+                    person=person,
+                    task=task
+                )
+                session.add(new_task)
+
+        session.commit()
+        print("Tasks inserted successfully!")
     except BaseException as e:
         print(e)
-    input("click")
+
+
