@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+
+from models.ps_sql_schema import get_task_db
 from models.schemas import InputPayload, AnalysisResult
 from core.analyzer import OKRAnalyzer, OKRClassifier
 from utils.excel_reader import run_analysis_cli, load_okrs
@@ -7,6 +9,7 @@ from core.analyzer import OKRAnalyzer
 from utils.excel_reader import run_analysis_cli, run_analysis_cli_with_description
 
 app = FastAPI()
+db_dic = get_task_db()
 
 
 @app.get("/analyze", response_model=AnalysisResult)
@@ -18,6 +21,16 @@ def analyze():
     print("api called")
     payload = run_analysis_cli()
     return OKRAnalyzer.invoke(payload)
+
+
+@app.get("/analyze_v2", response_model=AnalysisResult)
+def analyze():
+    """
+    Analyze team daily tasks against OKRs and return mapping of tasks to OKRs,
+    along with identified risks and deliverables for each OKR.
+    """
+    print("api called")
+    return OKRAnalyzer.invoke_for_single_kr_with_description_for_split_tasks_3step(db_dic)
 
 
 @app.get("/analyze-kr/{kr_code}")

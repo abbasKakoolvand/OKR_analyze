@@ -28,7 +28,7 @@ class OpenAIClient:
             messages,
             deployment: str = AZURE_OPENAI_DEPLOYMENT,
             temperature: float = 0.0,  # Deterministic mode
-            max_tokens: int = 4096,
+            max_tokens: int = 8196,
             top_p: float = 1.0,
             seed: int = 42  # Fixed seed for reproducibility
     ) -> str:

@@ -1,12 +1,15 @@
 import pandas as pd
 
 from models.ps_sql_schema import get_task_db
+from services.db_tasks import is_day_in_db
 from services.openai_client import OpenAIClient
 from utils.excel_reader import load_daily_task_table
 from utils.extract_json_prompt import extract_json_from_response
 
+session, Tasks, _ = get_task_db()  # Convert to Gregorian date
 df = pd.read_excel("../assets/excel/team tasks spreadsheet.xlsx", engine="openpyxl")
 for day in df["date"].unique():
+    day_str = str(int(day))
     day_tasks = load_daily_task_table(df, day)
     prompt_sys = """Your task is to process the table data below and generate a **JSON** output listing **daily tasks for each person**. Follow these rules strictly:  
    
@@ -71,7 +74,10 @@ for day in df["date"].unique():
             f"{day_tasks}"
         )}
     ]
-
+    if is_day_in_db(session, Tasks, day_str):
+        print(f"Day {day_str} already exists in database. Skipping...")
+        session.close()
+        continue
     try:
         content = OpenAIClient.chat(
             prompt,
@@ -82,7 +88,6 @@ for day in df["date"].unique():
         # Extract JSON from response using triple backticks
         data = extract_json_from_response(content)
         print(data)
-        session, Tasks, _ = get_task_db() # Convert to Gregorian date
 
         for person, tasks in data.items():
             for task in tasks:
@@ -94,8 +99,6 @@ for day in df["date"].unique():
                 session.add(new_task)
 
         session.commit()
-        print("Tasks inserted successfully!")
+        print(f"Tasks of {day} inserted successfully!")
     except BaseException as e:
         print(e)
-
-

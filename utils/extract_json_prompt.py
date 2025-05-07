@@ -17,7 +17,7 @@ def extract_json_from_response(response_text: str) -> dict:
         if start_index != -1 and end_index != -1 and start_index < end_index:
             # Extract the substring between the first '{' and the last '}'
             json_str = response_text[start_index:end_index + 1].strip()
-            print("Extracted JSON String:", json_str)
+            # print("Extracted JSON String:", json_str)
             try:
                 data = json.loads(json_str)
                 return data

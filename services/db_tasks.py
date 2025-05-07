@@ -1,42 +1,46 @@
-from sqlalchemy import create_engine, Table, MetaData
-from datetime import datetime
+def is_day_in_db(session, Tasks, day_str):
+    result = session.query(Tasks).filter(Tasks.day == day_str).first()
+    return result is not None
 
 
-# Convert Persian date string (e.g., '14040206') to Python date
-def parse_persian_date(date_str):
-    year = int(date_str[0:4])
-    month = int(date_str[4:6])
-    day = int(date_str[6:8])
-    return datetime(year=year, month=month, day=day).date()
+def is_task_kr_person_exist(session, TaskScore, kr_code, person):
+    result = session.query(TaskScore).filter(
+        TaskScore.kr_code == kr_code,
+        TaskScore.person == person  # ❌ This will fail - no 'person' column in TaskScore
+    ).first()
+    return result is not None
 
 
-# Example input
-day_str = "14040206"  # Persian date
-day = parse_persian_date(day_str)
+def get_person_tasks(session, Tasks, person):
+    tasks_for_person = session.query(Tasks).filter_by(person=person).all()
+    return tasks_for_person
 
-tasks_json = {
-    "rezazadeh": ["پیگیری تیکت‌های مربوط به سرورهای جدید", "پیگیری تیکت مربوط به تایید امنیت..."],
-    "mamdoohi": ["ایجاد Stored Procedure برای گزارش اقدامات", "وارد کردن داده‌های Roaming..."],
-    # ... other people and tasks
-}
 
-# Connect to PostgreSQL
-engine = create_engine("postgresql://user:password@localhost/dbname")
-metadata = MetaData(bind=engine)
-connection = engine.connect()
+def get_unique_persons(session, Tasks):
+    try:
+        # Query for unique persons
+        unique_persons = session.query(Tasks.person).distinct().all()
 
-# Reflect the table
-tasks_table = Table('tasks', metadata, autoload_with=engine)
+        # Convert query results from tuples to strings
+        # Result looks like: [('rezazadeh',), ('farmani',), ...]
+        person_list = [person[0] for person in unique_persons]
 
-# Insert tasks
-for person, tasks in tasks_json.items():
-    for task in tasks:
-        stmt = tasks_table.insert().values(
-            day=str(day),
+        return sorted(person_list)  # Sort alphabetically
+
+    except Exception as e:
+        print(f"Error retrieving persons: {str(e)}")
+
+
+def save_scores_in_db(scored_tasks, session, taskscore, kr_code, person):
+    score_records = [
+        taskscore(
+            task_id=task_id,
+            kr_code=kr_code,
+            score=scored_tasks[task_id],
             person=person,
-            task=task
-        )
-        connection.execute(stmt)
+        ) for task_id in scored_tasks.keys()
+    ]
 
-connection.commit()
-connection.close()
+    # Bulk insert
+    session.bulk_save_objects(score_records)
+    session.commit()

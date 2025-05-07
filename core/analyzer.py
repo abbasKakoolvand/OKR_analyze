@@ -2,13 +2,169 @@
 import json
 from fastapi import HTTPException
 from models.schemas import InputPayload, AnalysisResult
+from services.db_tasks import get_unique_persons, get_person_tasks, save_scores_in_db, is_task_kr_person_exist
 from services.openai_client import client as openai_client
 from services.openai_client import OpenAIClient
+from utils.excel_reader import load_okrs, load_okrs_with_objective, run_analysis_cli_with_description
 from utils.extract_json_prompt import extract_json_from_response
 from langchain_core.runnables import Runnable
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def create_person_task_text(tasks_for_person, person):
+    text = f" for *{person}* we have these tasks: ["
+    for task in tasks_for_person:
+        text = text + f"## task_id={task.id}, task={task.task} ##,"
+    text = text + "]"
+    text.replace(",]", "]")
+    return text
+
+
+def get_initial_tasks(task_text, okr_id, okr_description):
+    # Build structured prompt focused on the single KR
+    initial_prompt = [
+        {"role": "system", "content": (
+            "You are a task filtering assistant. Your job is to identify tasks with *any* potential connection to the specified Key Result using their database IDs.\n"
+            "CRITICAL INSTRUCTIONS:\n"
+            "1. Use ONLY task IDs in your response\n"
+            "2. Include tasks showing even indirect connection to the KR\n"
+            "3. Exclude tasks with no obvious relation\n"
+            "4. For each ID, provide explicit reasoning\n"
+            "5. Return tasks by ID in the exact JSON format\n\n"
+
+            "ANALYSIS FRAMEWORK:\n"
+            "For each task ID:\n"
+            "1. Does the task relate to any KR component?\n"
+            "2. Is there implicit/explicit connection to KR objectives?\n"
+            "3. Could it contribute to KR success (directly or indirectly)?\n\n"
+
+            "RESPONSE FORMAT (STRICTLY FOLLOW):\n"
+            "{\n"
+            "  \"kr_deconstruction\": [\"KR component 1\", \"KR component 2\", ...],\n"
+            "  \"task_analysis\": {\n"
+            "    \"147\": {\n"
+            "      \"reason\": \"Explicitly relates to infrastructure setup (KR component 1)\",\n"
+            "      \"relevance_score\": 90,\n"
+            "      \"include\": true\n"
+            "    },\n"
+            "    \"152\": {\n"
+            "      \"reason\": \"Meeting context unclear - could relate to KR planning\",\n"
+            "      \"relevance_score\": 60,\n"
+            "      \"include\": true\n"
+            "    }\n"
+            "  },\n"
+            "  \"candidate_task_ids\": [147, 152]\n"
+            "}\n\n"
+
+            "DATABASE TASK CONTEXT:\n"
+            "All tasks are stored with IDs in Persian format. Use only IDs in responses."
+        )},
+        {"role": "user", "content": (
+            f"ID-to-Task Mapping:\n{task_text}\n\n"
+            f"Target KR: {okr_id}\n"
+            f"KR Description: {okr_description}\n\n"
+            "INSTRUCTION:\n"
+            "1. Deconstruct the KR into 3-5 components\n"
+            "2. Analyze each task ID with reasoning\n"
+            "3. Return candidate task IDs with:\n"
+            "   - Chain-of-thought analysis\n"
+            "   - Relevance score (0-100)\n"
+            "   - Inclusion decision\n"
+            "4. Final list must contain only IDs"
+        )}
+    ]
+
+    unified_prompt = [
+        {"role": "system", "content": (
+            "You are an advanced task-KR mapping specialist. For each task ID, perform a complete analysis from deconstruction to scoring.\n"
+            "CRITICAL INSTRUCTIONS:\n"
+            "1. Use ONLY task IDs in your response\n"
+            "2. Provide explicit reasoning for every score\n"
+            "3. Return scores for ALL input tasks (even those with zero relevance)\n"
+            "4. Score range: 0-100 (0 = completely unrelated, 100 = direct implementation)\n"
+            "5. Include full task analysis with reasoning\n"
+            "6. Never include text outside JSON structure\n\n"
+
+            "ANALYSIS FRAMEWORK:\n"
+            "1. **Deconstruct KR**: Identify 3-5 core components from the KR\n"
+            "2. **Map Tasks**: For each task ID:\n"
+            "   - Does it relate to any KR component?\n"
+            "   - What's the nature of the connection (direct/indirect)?\n"
+            "   - Is there explicit evidence of relevance?\n"
+            "3. **Score Tasks**: Apply these criteria:\n"
+            "   - 90-100: Direct implementation of KR requirements\n"
+            "   - 70-89: Clear indirect contribution\n"
+            "   - 50-69: Potential tangential relevance\n"
+            "   - 0-49: No meaningful connection to KR\n\n"
+
+            "RESPONSE FORMAT:\n"
+            "{\n"
+            "  \"kr_deconstruction\": [\"KR component 1\", \"KR component 2\"],\n"
+            "  \"task_analysis\": {\n"
+            "    \"147\": {\n"
+            "      \"reason\": \"Explicitly relates to infrastructure setup (KR component 1)\",\n"
+            "      \"relevance_score\": 95,\n"
+            "      \"confidence\": 90,\n"
+            "      \"include\": true\n"
+            "    },\n"
+            "    \"152\": {\n"
+            "      \"reason\": \"Meeting context unclear - requires additional information\",\n"
+            "      \"relevance_score\": 30,\n"
+            "      \"confidence\": 40,\n"
+            "      \"include\": false\n"
+            "    }\n"
+            "  },\n"
+            "  \"all_task_scores\": [\n"
+            "    {\"id\": 147, \"score\": 95, \"reason\": \"Direct implementation of infrastructure requirements\"},\n"
+            "    {\"id\": 152, \"score\": 30, \"reason\": \"No clear connection to KR objectives\"}\n"
+            "  ]\n"
+            "}\n\n"
+            "DATABASE TASK CONTEXT:\n"
+            "All tasks are stored with IDs in Persian format. Use only IDs in responses."
+        )},
+        {"role": "user", "content": (
+            f"ID-to-Task Mapping:\n{task_text}\n\n"
+            f"Target KR: {okr_id}\n"
+            f"KR Description: {okr_description}\n\n"
+            "INSTRUCTION:\n"
+            "1. Deconstruct KR into 3-5 components\n"
+            "2. Analyze each task ID with reasoning for:\n"
+            "   - Connection to KR components\n"
+            "   - Evidence of relevance\n"
+            "   - Implementation path\n"
+            "3. Provide scores for ALL tasks (0-100) with:\n"
+            "   - Detailed reasoning\n"
+            "   - Confidence level (0-100)\n"
+            "   - Inclusion decision\n"
+            "4. Final list must contain scores for every task ID"
+        )}
+    ]
+    tasks = {}
+    i = 0
+    while i < 4:
+        try:
+            content = OpenAIClient.chat(
+                unified_prompt,
+                temperature=0,  # Deterministic output
+                seed=42  # Reproducibility
+            )
+
+            # Extract JSON from response using triple backticks
+            data = extract_json_from_response(content)
+            for task in data["all_task_scores"]:
+                try:
+                    tasks[task["id"]] += task["score"]
+                except:
+                    tasks[task["id"]] = task["score"]
+            i += 1
+
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Analysis failed: {e}")
+    print(str(tasks))
+    return tasks
 
 
 class OKRAnalyzer:
@@ -237,6 +393,22 @@ class OKRAnalyzer:
             risks={kr_code: data.get("risks", {}).get(kr_code, [])},
             deliverables={kr_code: data.get("deliverables", {}).get(kr_code, [])}
         )
+
+    @staticmethod
+    def invoke_for_single_kr_with_description_for_split_tasks_3step(db_dic):
+        okr_xlsx = "assets/excel/SPM BI OKR 1404.xlsx"
+        okr_list, _ = load_okrs_with_objective(okr_xlsx, "")
+        persons = get_unique_persons(db_dic["session"], db_dic["Tasks"])
+        for okr in okr_list:
+            _, okr_str = load_okrs_with_objective(okr_xlsx, okr.id)
+            for person in persons:
+                print(okr.description,person)
+                if is_task_kr_person_exist(db_dic["session"], db_dic["TaskScore"], okr.id,person):
+                    continue
+                tasks_for_person = get_person_tasks(db_dic["session"], db_dic["Tasks"], person)
+                task_text = create_person_task_text(tasks_for_person, person)
+                scored_tasks = get_initial_tasks(task_text, okr.id, okr.description)
+                save_scores_in_db(scored_tasks, db_dic["session"], db_dic["TaskScore"], okr.id,person)
 
 
 #defining a runnable class to invoke the analyzer

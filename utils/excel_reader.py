@@ -98,36 +98,39 @@ def load_okrs_with_objective(path: str, okr_code: str):
         path,
         sheet_name='SPMBI OKR 1404Q1-python'
     )
-    filtered = df[df['SPM BI Key Results (نتایج کلیدی)'].notna() & df['SPM BI Key Results (نتایج کلیدی)'].astype(
+    filtered_df = df[df['SPM BI Key Results (نتایج کلیدی)'].notna() & df['SPM BI Key Results (نتایج کلیدی)'].astype(
         str).str.strip().ne('')]
-    filtered = filtered[filtered['SPMBIKR-CODE'] == okr_code]
-    print(f"filtered {okr_code}:", )
-    flag_description = True  # toggle whether to include the description field
-    # 2. Build the text
-    lines = []
-    for obj, obj_df in filtered.groupby('Objective (هدف)'):
-        kr_lines = []
-        for gm_kr, kr_df in obj_df.groupby('SPM Key Results (نتایج کلیدی)'):
-            # collect all the BI‐level KRs under this GM KR
-            items = []
-            for _, row in kr_df.iterrows():
-                bi_kr = row['SPM BI Key Results (نتایج کلیدی)']
-                if flag_description:
-                    desc = row['Descriptin (توضیحات)']
-                    items.append(f"**KR: {bi_kr}, KR_Description: {desc}**")
-                else:
-                    items.append(f"**KR: {bi_kr}**")
-            kr_list = ", ".join(items)
-            kr_lines.append(f"###for GM KR *{gm_kr}* we have these team KRs:[{kr_list}]###")
-        # join all the GM KR blocks under this Objective
-        joined_kr_blocks = " ".join(kr_lines)
-        lines.append(f"for GM Objective *{obj}* we have these GM KRs:[{joined_kr_blocks}]")
-    # 3. Final output
-    okr_text = "\n\n".join(lines)
-    print(okr_text)
+    if not okr_code == "":
+        filtered = filtered_df[filtered_df['SPMBIKR-CODE'] == okr_code]
+        print(f"filtered {okr_code}:", )
+        flag_description = True  # toggle whether to include the description field
+        # 2. Build the text
+        lines = []
+        for obj, obj_df in filtered.groupby('Objective (هدف)'):
+            kr_lines = []
+            for gm_kr, kr_df in obj_df.groupby('SPM Key Results (نتایج کلیدی)'):
+                # collect all the BI‐level KRs under this GM KR
+                items = []
+                for _, row in kr_df.iterrows():
+                    bi_kr = row['SPM BI Key Results (نتایج کلیدی)']
+                    if flag_description:
+                        desc = row['Descriptin (توضیحات)']
+                        items.append(f"**KR: {bi_kr}, KR_Description: {desc}**")
+                    else:
+                        items.append(f"**KR: {bi_kr}**")
+                kr_list = ", ".join(items)
+                kr_lines.append(f"###for GM KR *{gm_kr}* we have these team KRs:[{kr_list}]###")
+            # join all the GM KR blocks under this Objective
+            joined_kr_blocks = " ".join(kr_lines)
+            lines.append(f"for GM Objective *{obj}* we have these GM KRs:[{joined_kr_blocks}]")
+        # 3. Final output
+        okr_text = "\n\n".join(lines)
+        print(okr_text)
+    else:
+        okr_text = ""
 
     okrs = [
         OKR(id=str(row["SPMBIKR-CODE"]).strip(), description=str(row["SPM BI Key Results (نتایج کلیدی)"]).strip())
-        for _, row in filtered.iterrows()
+        for _, row in filtered_df.iterrows()
     ]
     return okrs, okr_text
