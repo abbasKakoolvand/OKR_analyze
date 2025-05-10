@@ -402,13 +402,14 @@ class OKRAnalyzer:
         for okr in okr_list:
             _, okr_str = load_okrs_with_objective(okr_xlsx, okr.id)
             for person in persons:
-                print(okr.description,person)
-                if is_task_kr_person_exist(db_dic["session"], db_dic["TaskScore"], okr.id,person):
+                print(okr.description, person)
+                if is_task_kr_person_exist(db_dic["session"], db_dic["TaskScore"], okr.id, person):
                     continue
+                print("checkpoint 1")
                 tasks_for_person = get_person_tasks(db_dic["session"], db_dic["Tasks"], person)
                 task_text = create_person_task_text(tasks_for_person, person)
                 scored_tasks = get_initial_tasks(task_text, okr.id, okr.description)
-                save_scores_in_db(scored_tasks, db_dic["session"], db_dic["TaskScore"], okr.id,person)
+                save_scores_in_db(scored_tasks, db_dic["session"], db_dic["TaskScore"], okr.id, person)
 
 
 #defining a runnable class to invoke the analyzer
